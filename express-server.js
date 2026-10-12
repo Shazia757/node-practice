@@ -44,8 +44,12 @@ app.get("/api/applications", async (req, res) => {
 
 app.post("/api/applications", async (req, res) => {
     const { company, position, status } = req.body;
-    if (!company || !position || !status) {
+    const allowedStatuses = ["Applied", "Interview", "Offer", "Rejected"];
+    if (typeof company !== "string" || !company.trim() || typeof position !== "string" || !position.trim()) {
         return res.status(400).json({ message: 'All fields are required' })
+    }
+    if (typeof status !== "string" || !allowedStatuses.includes(status)) {
+        return res.status(400).json({ message: 'Invalid status' })
     }
     try {
         const result = await pool.query("INSERT INTO applications (company, position, status) VALUES ($1,$2,$3) RETURNING *", [company, position, status])
@@ -61,17 +65,59 @@ app.patch("/api/applications/:id", async (req, res) => {
         return res.status(400).json({ message: "Request body is required" })
     }
     const { company, position, status } = req.body;
+    const allowedStatuses = [
+        "Applied",
+        "Interview",
+        "Offer",
+        "Rejected"
+    ];
+    const updates = [];
+    const allowedFields = ["company", "position", "status"];
+
 
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
         return res.status(400).json({ message: "Invalid application ID" });
     }
 
-    if (!company || !position || !status) {
-        return res.status(400).json({ message: "Company, position, and status are required" })
+    if (Object.keys(req.body).length === 0) {
+        return res.status(400).json({ message: 'Empty' })
+
     }
+
+    if (Object.hasOwn(req.body, "company")) {
+        if (typeof company !== "string" || !company.trim()) {
+            return res.status(400).json({ message: 'Invalid company' })
+        }
+        updates.push({ column: "company", value: company });
+
+    }
+    if (Object.hasOwn(req.body, "position")) {
+        if (typeof position !== "string" || !position.trim()) {
+            return res.status(400).json({ message: 'Invalid position' })
+        }
+        updates.push({ column: "position", value: position });
+
+    }
+    if (Object.hasOwn(req.body, "status")) {
+        if (typeof status !== "string" || !allowedStatuses.includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' })
+        }
+        updates.push({ column: "status", value: status });
+
+    }
+    if (Object.keys(req.body).some(key => !allowedFields.includes(key)
+    )) {
+        return res.status(400).json({ message: 'Invalid items' })
+    }
+    const setClause = updates.map((update, index) =>
+        `${update.column} = $${index + 1}`)
+        .join(", ");
+    const values = updates.map(update => update.value);
+    values.push(id);
+
     try {
-        const result = await pool.query("UPDATE applications SET company=$1,position=$2,status=$3 WHERE id=$4 RETURNING *;", [company, position, status, id])
+        const result = await pool.query(`UPDATE applications SET ${setClause} WHERE id=$${values.length} RETURNING *;`, values)
         if (result.rows.length === 0) {
             return res.status(404).json({ message: "ID not found" })
         }
@@ -87,10 +133,10 @@ app.patch("/api/applications/:id", async (req, res) => {
 app.delete("/api/applications/:id", async (req, res) => {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id <= 0) {
-       return res.status(400).json({ message: "Invalid application ID" })
+        return res.status(400).json({ message: "Invalid application ID" })
     }
     try {
-        const result =await pool.query("DELETE FROM applications WHERE id = $1 RETURNING *;",[id])
+        const result = await pool.query("DELETE FROM applications WHERE id = $1 RETURNING *;", [id])
         if (result.rows.length === 0) {
             return res.status(404).json({ message: "ID not found" })
         }
