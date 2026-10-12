@@ -44,6 +44,8 @@ app.get("/api/applications", async (req, res) => {
 
 app.post("/api/applications", async (req, res) => {
     const { company, position, status } = req.body;
+    const cleanCompany = company.trim();
+    const cleanPosition = position.trim();
     const allowedStatuses = ["Applied", "Interview", "Offer", "Rejected"];
     if (typeof company !== "string" || !company.trim() || typeof position !== "string" || !position.trim()) {
         return res.status(400).json({ message: 'All fields are required' })
@@ -52,7 +54,7 @@ app.post("/api/applications", async (req, res) => {
         return res.status(400).json({ message: 'Invalid status' })
     }
     try {
-        const result = await pool.query("INSERT INTO applications (company, position, status) VALUES ($1,$2,$3) RETURNING *", [company, position, status])
+        const result = await pool.query("INSERT INTO applications (company, position, status) VALUES ($1,$2,$3) RETURNING *", [cleanCompany, cleanPosition, status])
         res.status(201).json(result.rows[0])
     } catch (error) {
         console.error("Failed to add application:", error);
@@ -89,14 +91,14 @@ app.patch("/api/applications/:id", async (req, res) => {
         if (typeof company !== "string" || !company.trim()) {
             return res.status(400).json({ message: 'Invalid company' })
         }
-        updates.push({ column: "company", value: company });
+        updates.push({ column: "company", value: company.trim() });
 
     }
     if (Object.hasOwn(req.body, "position")) {
         if (typeof position !== "string" || !position.trim()) {
             return res.status(400).json({ message: 'Invalid position' })
         }
-        updates.push({ column: "position", value: position });
+        updates.push({column: "position", value: position.trim() });
 
     }
     if (Object.hasOwn(req.body, "status")) {
