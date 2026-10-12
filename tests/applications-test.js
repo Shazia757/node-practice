@@ -83,6 +83,35 @@ test("DELETE returns 200", async () => {
     assert.strictEqual(getRes.body.some((application) => application.id === id), false);
 });
 
+test("POST with no company name returns 400", async () => {
+    const response = await request(app)
+        .post("/api/applications")
+        .send({
+            company: "",
+            position: "Junior Developer",
+            status: "Applied"
+        });
+
+    assert.strictEqual(response.status, 400);
+
+});
+test("POST with no company name has no unintended side effects", async () => {
+    const initialRes = await request(app).get("/api/applications");
+
+    const response = await request(app)
+        .post("/api/applications")
+        .send({
+            company: "",
+            position: "Junior Developer",
+            status: "Applied"
+        });
+    const finalRes = await request(app).get("/api/applications");
+
+
+    assert.strictEqual(initialRes.body.length, finalRes.body.length);
+
+});
+
 after(async () => {
     await pool.end();
 });
